@@ -18,14 +18,14 @@ public class TestDatabuilder {
     }
 
     public static AddBookRequest addBookRequestRandomPayload() {
-        String randomISBN = TestUtils.generateRandomString(5);
-        String randomAisle = TestUtils.generateRandomNumberString(5);
+        String isbn = "ISBN" + TestUtils.generateRandomString(4);
+        String aisle = TestUtils.randomNonZeroNumberString(4);
 
         AddBookRequest addBookRandomRequest = new AddBookRequest();
 
         addBookRandomRequest.setName("Learn Rest Assured with Java");
-        addBookRandomRequest.setIsbn(randomISBN);
-        addBookRandomRequest.setAisle(randomAisle);
+        addBookRandomRequest.setIsbn(isbn);
+        addBookRandomRequest.setAisle(aisle);
         addBookRandomRequest.setAuthor("John Doe");
 
         return addBookRandomRequest;

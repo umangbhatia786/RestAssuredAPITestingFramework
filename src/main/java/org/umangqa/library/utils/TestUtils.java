@@ -23,4 +23,22 @@ public class TestUtils {
         }
         return sb.toString();
     }
+
+    public static String randomNonZeroNumberString(int len) {
+        Random r = new Random();
+        StringBuilder sb = new StringBuilder(len);
+
+        for (int i = 0; i < len; i++) {
+            int digit = r.nextInt(10);
+
+            // First digit must not be 0
+            if (i == 0 && digit == 0) {
+                digit = r.nextInt(9) + 1; // 1-9
+            }
+
+            sb.append(digit);
+        }
+        return sb.toString();
+    }
+
 }
