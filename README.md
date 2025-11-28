@@ -529,7 +529,7 @@ After each workflow run, Allure reports are automatically generated and can be a
    - **Usage**: Download, extract, and open `index.html` in a browser
 
 2. **GitHub Pages** (Recommended):
-   - **Location**: `https://<username>.github.io/<repository-name>/`
+   - **Location**: `https://umangbhatia786.github.io/RestAssuredAPITestingFramework/`
    - **Automatic**: Reports are automatically published to GitHub Pages
    - **Access**: View reports directly in your browser without downloading
    - **Branch**: Reports are published to the `gh-pages` branch
@@ -542,7 +542,7 @@ To enable GitHub Pages for your repository:
 2. Under **Source**, select **Deploy from a branch**
 3. Select **gh-pages** branch and **/ (root)** folder
 4. Click **Save**
-5. Your Allure reports will be available at: `https://<username>.github.io/<repository-name>/`
+5. Your Allure reports will be available at: `https://umangbhatia786.github.io/RestAssuredAPITestingFramework/`
 
 ### Benefits of CI/CD Integration
 
