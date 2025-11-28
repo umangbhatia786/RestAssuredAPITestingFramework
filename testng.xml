@@ -2,6 +2,7 @@
 <suite name="Library API Suite">
     <listeners>
         <listener class-name="org.umangqa.library.listeners.RetryTransformer"/>
+        <listener class-name="io.qameta.allure.testng.AllureTestNg"/>
     </listeners>
     <test name="API Tests">
         <classes>
