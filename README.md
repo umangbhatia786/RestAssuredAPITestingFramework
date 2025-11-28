@@ -23,6 +23,7 @@ This framework provides a robust solution for API testing with the following fea
 - **JSON Schema Validation**: Automatic response structure validation
 - **Reusable Specifications**: Centralized request/response specifications
 - **Test Data Builders**: Dynamic test data generation
+- **Automatic Retry Mechanism**: Failed tests are automatically retried (up to 2 retries)
 - **TestNG Integration**: Advanced test execution and reporting
 - **Maven Build System**: Dependency management and test execution
 
@@ -62,6 +63,11 @@ graph TB
         TU[TestUtils]
     end
     
+    subgraph "Listeners Layer"
+        RT[RetryTransformer]
+        RAnalyzer[RetryAnalyzer]
+    end
+    
     subgraph "Resources"
         JSON[JSON Schemas]
     end
@@ -92,6 +98,10 @@ graph TB
     DT --> RA
     RA --> API
     SB --> RA
+    RT --> AT
+    RT --> GT
+    RT --> DT
+    RT --> RAnalyzer
     
     style AT fill:#e1f5ff
     style GT fill:#e1f5ff
@@ -100,6 +110,8 @@ graph TB
     style TDB fill:#e8f5e9
     style SB fill:#e8f5e9
     style TU fill:#f3e5f5
+    style RT fill:#fff9c4
+    style RAnalyzer fill:#fff9c4
     style JSON fill:#fce4ec
 ```
 
@@ -109,7 +121,8 @@ graph TB
 2. **Builder Layer**: Provides test data builders and request/response specifications
 3. **POJO Layer**: Java objects representing API request/response models
 4. **Utility Layer**: Helper methods for test data generation
-5. **Resources**: JSON schema files for response validation
+5. **Listeners Layer**: TestNG listeners for retry mechanism and test execution hooks
+6. **Resources**: JSON schema files for response validation
 
 ## 📁 Project Structure
 
@@ -125,6 +138,9 @@ RestAssuredSampleFramework/
 │   │   │       │   ├── addbook/                  # Add book request/response POJOs
 │   │   │       │   ├── deletebook/               # Delete book request/response POJOs
 │   │   │       │   └── getbook/                  # Get book response POJOs
+│   │   │       ├── listeners/
+│   │   │       │   ├── RetryAnalyzer.java        # Retry logic implementation
+│   │   │       │   └── RetryTransformer.java      # TestNG annotation transformer
 │   │   │       ├── specs/
 │   │   │       │   └── SpecBuilder.java          # Request/Response specifications
 │   │   │       └── utils/
@@ -204,6 +220,55 @@ JSON schema files in `src/main/resources/schemas/` validate response structure:
 - Catches API contract violations early
 - Provides clear error messages
 
+### 7. Retry Mechanism
+
+Automatic retry logic for failed tests using TestNG listeners:
+
+#### RetryAnalyzer
+
+Implements `IRetryAnalyzer` to control retry behavior:
+
+```java
+public class RetryAnalyzer implements IRetryAnalyzer {
+    private int retryCount = 0;
+    private static final int maxRetryCount = 2;
+    
+    @Override
+    public boolean retry(ITestResult result) {
+        if (retryCount < maxRetryCount) {
+            retryCount++;
+            return true; // Retry the test
+        }
+        return false; // No more retries
+    }
+}
+```
+
+**Features**:
+- Automatically retries failed tests up to 2 times
+- Logs retry attempts for debugging
+- Configurable maximum retry count
+
+#### RetryTransformer
+
+Implements `IAnnotationTransformer` to automatically apply retry analyzer to all tests:
+
+```java
+public class RetryTransformer implements IAnnotationTransformer {
+    @Override
+    public void transform(ITestAnnotation annotation, ...) {
+        if (annotation.getRetryAnalyzerClass() == null) {
+            annotation.setRetryAnalyzer(RetryAnalyzer.class);
+        }
+    }
+}
+```
+
+**Purpose**: 
+- Automatically applies retry logic to all test methods
+- No need to manually add `@Test(retryAnalyzer = RetryAnalyzer.class)` to each test
+- Configured in `testng.xml` as a listener
+
 ## 📦 Prerequisites
 
 Before running the tests, ensure you have the following installed:
@@ -266,10 +331,13 @@ mvn clean test -DsuiteXmlFile=testng.xml
 
 #### TestNG XML Configuration
 
-The `testng.xml` file defines the test suite:
+The `testng.xml` file defines the test suite and configures listeners:
 
 ```xml
 <suite name="Library API Suite">
+    <listeners>
+        <listener class-name="org.umangqa.library.listeners.RetryTransformer"/>
+    </listeners>
     <test name="API Tests">
         <classes>
             <class name="org.umangqa.library.tests.AddBookTest"/>
@@ -279,6 +347,10 @@ The `testng.xml` file defines the test suite:
     </test>
 </suite>
 ```
+
+**Listeners Configuration**:
+- `RetryTransformer` is registered as a listener to automatically apply retry logic to all tests
+- Failed tests will be automatically retried up to 2 times before being marked as failed
 
 ### Option 3: Running Individual Tests from IDE
 
@@ -338,6 +410,55 @@ sequenceDiagram
     T->>T: Assert business logic
 ```
 
+### Retry Mechanism Flow
+
+When a test fails, the retry mechanism automatically attempts to re-run the test:
+
+```mermaid
+sequenceDiagram
+    participant TestNG
+    participant RT as RetryTransformer
+    participant RA as RetryAnalyzer
+    participant Test as Test Method
+    
+    TestNG->>RT: Transform test annotation
+    RT->>RA: Set RetryAnalyzer
+    TestNG->>Test: Execute test
+    Test-->>TestNG: Test Result (FAILED)
+    TestNG->>RA: retry(result)
+    RA->>RA: Check retryCount < maxRetryCount
+    alt Retry Available
+        RA-->>TestNG: return true
+        Note over RA: retryCount++
+        TestNG->>Test: Re-execute test
+        Test-->>TestNG: Test Result
+        alt Still Failing
+            TestNG->>RA: retry(result)
+            RA->>RA: Check retryCount < maxRetryCount
+            alt Final Retry
+                RA-->>TestNG: return true
+                TestNG->>Test: Final retry attempt
+                Test-->>TestNG: Test Result (FAILED)
+                TestNG->>RA: retry(result)
+                RA-->>TestNG: return false (max retries reached)
+            else Max Retries Reached
+                RA-->>TestNG: return false
+            end
+        else Test Passes
+            Note over TestNG: Test marked as PASSED
+        end
+    else Max Retries Reached
+        RA-->>TestNG: return false
+        Note over TestNG: Test marked as FAILED
+    end
+```
+
+**Retry Behavior**:
+- Maximum 2 retry attempts per failed test
+- Retries happen automatically without manual intervention
+- Each retry attempt is logged for debugging
+- Test is marked as failed only after all retries are exhausted
+
 ## 📚 Dependencies
 
 The framework uses the following key dependencies (defined in `pom.xml`):
@@ -389,6 +510,14 @@ The framework uses the following key dependencies (defined in `pom.xml`):
 
 - Use `.log().all()` for request/response logging during development
 - Remove or conditionally enable logging in production runs
+
+### 7. Retry Mechanism
+
+- Failed tests are automatically retried up to 2 times by default
+- Retry logic is applied automatically via `RetryTransformer` listener
+- Adjust `maxRetryCount` in `RetryAnalyzer` to change retry behavior
+- Retry attempts are logged for debugging purposes
+- Use retries for handling transient failures (network issues, timing problems)
 
 ## 📝 Example Test
 
@@ -446,6 +575,12 @@ Open these HTML files in a browser to view detailed test results.
 4. **Maven build fails**
    - Run `mvn clean install` to refresh dependencies
    - Verify Java version matches `pom.xml` configuration (JDK 22)
+
+5. **Tests retry but still fail**
+   - Check if the failure is due to transient issues (network, timing)
+   - Review retry logs to see retry attempts
+   - Adjust `maxRetryCount` in `RetryAnalyzer` if needed
+   - Verify the test logic is correct and not causing consistent failures
 
 ## 📄 License
 
