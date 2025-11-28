@@ -154,12 +154,14 @@ RestAssuredSampleFramework/
 │   │           ├── addBookResponse.json
 │   │           └── getBookByIdResponse.json
 │   └── test/
-│       └── java/
-│           └── org/umangqa/library/tests/
-│               ├── BaseTest.java                  # Base test class with setup
-│               ├── AddBookTest.java               # Add book test cases
-│               ├── GetBookTest.java               # Get book test cases
-│               └── DeleteBookTest.java            # Delete book test cases
+│       ├── java/
+│       │   └── org/umangqa/library/tests/
+│       │       ├── BaseTest.java                  # Base test class with setup
+│       │       ├── AddBookTest.java               # Add book test cases
+│       │       ├── GetBookTest.java               # Get book test cases
+│       │       └── DeleteBookTest.java            # Delete book test cases
+│       └── resources/
+│           └── allure.properties                  # Allure configuration
 ├── .github/
 │   └── workflows/
 │       └── library-api-tests.yml                 # GitHub Actions CI/CD workflow
@@ -377,6 +379,7 @@ The `testng.xml` file defines the test suite and configures listeners:
 <suite name="Library API Suite">
     <listeners>
         <listener class-name="org.umangqa.library.listeners.RetryTransformer"/>
+        <listener class-name="io.qameta.allure.testng.AllureTestNg"/>
     </listeners>
     <test name="API Tests">
         <classes>
@@ -390,6 +393,7 @@ The `testng.xml` file defines the test suite and configures listeners:
 
 **Listeners Configuration**:
 - `RetryTransformer` is registered as a listener to automatically apply retry logic to all tests
+- `AllureTestNg` is registered as a listener to capture test execution data for Allure reports
 - Failed tests will be automatically retried up to 2 times before being marked as failed
 
 ### Option 3: Running Individual Tests from IDE
@@ -404,7 +408,7 @@ The framework includes a GitHub Actions workflow for continuous integration and 
 
 ### GitHub Actions Workflow
 
-The workflow file is located at `.github/workflows/library-api-tests.yml` and includes the following features:
+The workflow file is located at `.github/workflows/library-api-tests.yml` and includes comprehensive CI/CD with Allure report generation and GitHub Pages deployment.
 
 #### Workflow Triggers
 
@@ -418,25 +422,34 @@ graph LR
     A[Checkout Code] --> B[Set up Java 21]
     B --> C[Cache Maven Dependencies]
     C --> D[Run API Tests]
-    D --> E[Archive Test Reports]
+    D --> E[Download Allure CLI]
+    E --> F[Generate Allure Report]
+    F --> G[Upload Allure Artifact]
+    F --> H[Deploy to GitHub Pages]
     
     style A fill:#e3f2fd
     style B fill:#e3f2fd
     style C fill:#fff3e0
     style D fill:#e8f5e9
     style E fill:#f3e5f5
+    style F fill:#e1bee7
+    style G fill:#fff9c4
+    style H fill:#c8e6c9
 ```
 
 1. **Checkout Code**: Checks out the repository code
 2. **Set up Java**: Configures Java 21 using Temurin distribution
 3. **Cache Maven Repository**: Caches Maven dependencies to speed up builds
 4. **Run API Tests**: Executes all tests using Maven with the base URL configuration
-5. **Archive Test Reports**: Uploads test reports as artifacts (even if tests fail)
+5. **Download Allure CLI**: Downloads and installs Allure commandline tool (version 2.27.0)
+6. **Generate Allure Report**: Generates interactive Allure reports from test results
+7. **Upload Allure Artifact**: Uploads Allure report as a downloadable artifact
+8. **Deploy to GitHub Pages**: Publishes Allure report to GitHub Pages for easy access
 
 #### Workflow Configuration
 
 ```yaml
-name: API Automation Tests
+name: API Automation Tests with Allure Report
 
 on:
   push:
@@ -444,34 +457,57 @@ on:
   pull_request:
     branches: [ main, master ]
 
+permissions:
+  contents: write       # needed to push to gh-pages
+  pages: write
+  id-token: write
+
 jobs:
   api-tests:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
       
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: "21"
       
-      - name: Cache Maven repository
+      - name: Cache Maven repo
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
       
-      - name: Run API tests
+      - name: Run API Tests
         run: mvn -B clean test -DbaseUrl=http://216.10.245.166
       
-      - name: Archive TestNG reports
-        if: always()
+      - name: Download Allure CLI
+        run: |
+          ALLURE_VERSION=2.27.0
+          wget https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/$ALLURE_VERSION/allure-commandline-$ALLURE_VERSION.zip -O allure.zip
+          unzip allure.zip -d allure-cli
+          echo "$(pwd)/allure-cli/allure-$ALLURE_VERSION/bin" >> $GITHUB_PATH
+      
+      - name: Generate Allure Report
+        run: |
+          allure --version
+          allure generate target/allure-results --clean -o allure-report
+      
+      - name: Upload Allure Report Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: testng-reports
-          path: target/surefire-reports/
+          name: allure-report
+          path: allure-report
+      
+      - name: Deploy Allure Report to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: allure-report
+          publish_branch: gh-pages
 ```
 
 ### Viewing CI/CD Results
@@ -481,24 +517,44 @@ jobs:
 1. Navigate to the **Actions** tab in your GitHub repository
 2. Click on the workflow run to view detailed execution logs
 3. Check the status of each step in the workflow
-4. Download test reports from the **Artifacts** section
+4. Download Allure reports from the **Artifacts** section
 
-#### Test Reports Artifact
+#### Allure Report Artifact
 
-After each workflow run, test reports are automatically archived and can be downloaded:
+After each workflow run, Allure reports are automatically generated and can be accessed in multiple ways:
 
-- **Location**: GitHub Actions → Workflow Run → Artifacts → `testng-reports`
-- **Contents**: Complete TestNG and Surefire reports in HTML format
-- **Availability**: Reports are available even if tests fail (due to `if: always()` condition)
+1. **Download as Artifact**:
+   - **Location**: GitHub Actions → Workflow Run → Artifacts → `allure-report`
+   - **Contents**: Complete interactive Allure HTML report
+   - **Usage**: Download, extract, and open `index.html` in a browser
+
+2. **GitHub Pages** (Recommended):
+   - **Location**: `https://<username>.github.io/<repository-name>/`
+   - **Automatic**: Reports are automatically published to GitHub Pages
+   - **Access**: View reports directly in your browser without downloading
+   - **Branch**: Reports are published to the `gh-pages` branch
+
+#### Enabling GitHub Pages
+
+To enable GitHub Pages for your repository:
+
+1. Go to **Settings** → **Pages** in your GitHub repository
+2. Under **Source**, select **Deploy from a branch**
+3. Select **gh-pages** branch and **/ (root)** folder
+4. Click **Save**
+5. Your Allure reports will be available at: `https://<username>.github.io/<repository-name>/`
 
 ### Benefits of CI/CD Integration
 
 - **Automated Testing**: Tests run automatically on every code change
 - **Early Bug Detection**: Issues are caught before merging to main branch
 - **Consistent Environment**: Tests run in a clean, standardized environment
+- **Interactive Allure Reports**: Beautiful, detailed reports published to GitHub Pages
+- **Easy Report Access**: Reports accessible via GitHub Pages without downloading
 - **Test Report Archival**: Historical test reports are preserved for analysis
 - **Build Caching**: Maven dependencies are cached to reduce build time
 - **Pull Request Validation**: Ensures code quality before merging
+- **Public Report Sharing**: Share test results with stakeholders via GitHub Pages URL
 
 ### Customizing the Workflow
 
@@ -506,9 +562,11 @@ You can customize the workflow by:
 
 1. **Changing Java Version**: Update `java-version` in the workflow file
 2. **Modifying Base URL**: Change the `-DbaseUrl` parameter or use GitHub Secrets
-3. **Adding Additional Steps**: Include steps for notifications, deployments, etc.
-4. **Running Specific Tests**: Modify the Maven command to run specific test classes
-5. **Environment Variables**: Add secrets or environment variables for sensitive data
+3. **Allure Version**: Update `ALLURE_VERSION` variable to use a different Allure version
+4. **Disabling GitHub Pages**: Remove the "Deploy Allure Report to GitHub Pages" step if not needed
+5. **Adding Additional Steps**: Include steps for notifications, deployments, etc.
+6. **Running Specific Tests**: Modify the Maven command to run specific test classes
+7. **Environment Variables**: Add secrets or environment variables for sensitive data
 
 ### Using GitHub Secrets
 
@@ -640,10 +698,21 @@ The framework is integrated with **Allure TestOps** for generating beautiful, in
 
 ### Allure Integration
 
-The framework includes two Allure integrations:
+The framework includes comprehensive Allure integration:
 
-1. **Allure TestNG Listener**: Configured in `maven-surefire-plugin` to capture test execution
+1. **Allure TestNG Listener**: Configured in both `maven-surefire-plugin` and `testng.xml` to capture test execution
 2. **Allure REST Assured Filter**: Integrated in `SpecBuilder` to automatically capture HTTP requests and responses
+3. **Allure Properties Configuration**: `src/test/resources/allure.properties` configures the results directory
+
+#### Allure Properties Configuration
+
+The `allure.properties` file configures where Allure stores test results:
+
+```properties
+allure.results.directory=target/allure-results
+```
+
+This ensures Allure results are stored in the standard Maven target directory for easy access and CI/CD integration.
 
 ```java
 // SpecBuilder.java
@@ -758,21 +827,14 @@ target/site/allure-maven-plugin/
 
 #### CI/CD Execution
 
-For GitHub Actions, you can add Allure report generation and publishing:
+The GitHub Actions workflow automatically generates and publishes Allure reports:
 
-```yaml
-- name: Generate Allure Report
-  if: always()
-  run: |
-    mvn allure:report
-    
-- name: Publish Allure Report
-  if: always()
-  uses: simple-elf/allure-report-action@master
-  with:
-    allure_results: target/site/allure-maven-plugin
-    keep_reports: 20
-```
+- **Allure CLI Installation**: Downloads and installs Allure commandline tool
+- **Report Generation**: Generates Allure reports from test results
+- **Artifact Upload**: Uploads reports as downloadable artifacts
+- **GitHub Pages Deployment**: Publishes reports to GitHub Pages for easy access
+
+See the [CI/CD Integration](#cicd-integration) section for complete workflow details.
 
 ### Allure Report Sections
 
@@ -924,17 +986,22 @@ See the [Allure Reports](#-allure-reports) section for detailed instructions.
 
 ### 3. CI/CD Reports
 
-When tests run via GitHub Actions:
+When tests run via GitHub Actions, Allure reports are automatically generated and published:
 
+**Option 1: GitHub Pages (Recommended)**
+- Reports are automatically published to GitHub Pages
+- Access at: `https://umangbhatia786.github.io/RestAssuredAPITestingFramework/`
+- No download required - view directly in browser
+- See [CI/CD Integration](#cicd-integration) section for setup instructions
+
+**Option 2: Download Artifact**
 1. Navigate to the **Actions** tab in your GitHub repository
 2. Click on the workflow run
 3. Scroll down to the **Artifacts** section
-4. Download the `testng-reports` artifact
-5. Extract and open the HTML reports in a browser
+4. Download the `allure-report` artifact
+5. Extract and open `index.html` in a browser
 
-**Note**: Reports are archived even if tests fail, allowing you to analyze failures.
-
-**For Allure Reports in CI/CD**: Add Allure report generation steps to your workflow (see [Allure Reports](#-allure-reports) section).
+**Note**: Reports are generated and published even if tests fail, allowing you to analyze failures.
 
 ## 🛠️ Troubleshooting
 
