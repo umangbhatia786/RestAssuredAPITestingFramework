@@ -1,5 +1,6 @@
 package org.umangqa.library.specs;
 
+import io.qameta.allure.restassured.AllureRestAssured;
 import io.restassured.builder.RequestSpecBuilder;
 import io.restassured.builder.ResponseSpecBuilder;
 import io.restassured.http.ContentType;
@@ -17,6 +18,7 @@ public class SpecBuilder {
             requestSpec = new RequestSpecBuilder()
                     .setBaseUri(baseUrl)
                     .setContentType(ContentType.JSON)
+                    .addFilter(new AllureRestAssured())
                     .addHeader("Accept", "application/json")
                     .build();
         }

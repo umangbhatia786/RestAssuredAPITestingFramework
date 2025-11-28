@@ -10,6 +10,7 @@ A comprehensive, maintainable API testing framework built with REST Assured, Tes
 - [Key Components](#key-components)
 - [Prerequisites](#prerequisites)
 - [Running Tests](#running-tests)
+- [Allure Reports](#-allure-reports)
 - [CI/CD Integration](#cicd-integration)
 - [Dependencies](#dependencies)
 - [Test Execution Flow](#test-execution-flow)
@@ -25,6 +26,7 @@ This framework provides a robust solution for API testing with the following fea
 - **Reusable Specifications**: Centralized request/response specifications
 - **Test Data Builders**: Dynamic test data generation
 - **Automatic Retry Mechanism**: Failed tests are automatically retried (up to 2 retries)
+- **Allure Reports**: Beautiful, interactive test reports with detailed test execution history
 - **CI/CD Integration**: GitHub Actions workflow for automated test execution
 - **TestNG Integration**: Advanced test execution and reporting
 - **Maven Build System**: Dependency management and test execution
@@ -194,6 +196,7 @@ Centralized builder for request and response specifications:
 - Configurable base URL via system property (`baseUrl`)
 - Default base URL: `http://216.10.245.166`
 - Reusable across all tests
+- **Allure Integration**: Automatically captures HTTP requests and responses for Allure reports via `AllureRestAssured` filter
 
 ### 3. TestDatabuilder
 
@@ -278,8 +281,9 @@ public class RetryTransformer implements IAnnotationTransformer {
 
 Before running the tests, ensure you have the following installed:
 
-- **Java**: JDK 22 or higher
+- **Java**: JDK 21 or higher (Note: pom.xml uses Java 21)
 - **Maven**: 3.6.0 or higher
+- **Allure** (Optional but recommended): For generating interactive test reports
 - **IDE**: IntelliJ IDEA, Eclipse, or VS Code (optional)
 
 ### Verify Installation
@@ -290,7 +294,14 @@ java -version
 
 # Check Maven version
 mvn -version
+
+# Check Allure installation (if installed)
+allure --version
 ```
+
+### Installing Allure (Optional)
+
+Allure is recommended for generating beautiful test reports. See the [Allure Reports](#-allure-reports) section for installation instructions.
 
 ## 🚀 Running Tests
 
@@ -319,6 +330,30 @@ mvn test -DbaseUrl=http://your-api-url.com
 ```bash
 mvn clean test
 # Reports are generated in: target/surefire-reports/
+```
+
+#### Generate Allure Reports
+
+After running tests, generate and serve Allure reports:
+
+```bash
+# Generate Allure report
+mvn allure:report
+
+# Serve Allure report (opens in browser)
+mvn allure:serve
+```
+
+**Note**: The `allure:serve` command will automatically open the report in your default browser. The report will be available at `http://localhost:port` (default port is usually 4040).
+
+#### Generate Allure Report Only (without serving)
+
+```bash
+# Generate report without opening browser
+mvn allure:report
+
+# View the report later by opening:
+# target/site/allure-maven-plugin/index.html
 ```
 
 ### Option 2: Using TestNG XML
@@ -589,6 +624,177 @@ sequenceDiagram
 - Each retry attempt is logged for debugging
 - Test is marked as failed only after all retries are exhausted
 
+## 📊 Allure Reports
+
+The framework is integrated with **Allure TestOps** for generating beautiful, interactive test reports. Allure automatically captures test execution details, HTTP requests/responses, and provides comprehensive analytics.
+
+### Allure Features
+
+- **Interactive Dashboards**: Visual representation of test execution results
+- **HTTP Request/Response Capture**: Automatically captures all REST API calls with full request/response details
+- **Test History**: Track test execution trends over time
+- **Detailed Test Steps**: Step-by-step test execution breakdown
+- **Screenshots & Attachments**: Support for attaching additional test artifacts
+- **Retry Information**: Shows retry attempts and results
+- **Test Categories**: Organize tests by severity, features, etc.
+
+### Allure Integration
+
+The framework includes two Allure integrations:
+
+1. **Allure TestNG Listener**: Configured in `maven-surefire-plugin` to capture test execution
+2. **Allure REST Assured Filter**: Integrated in `SpecBuilder` to automatically capture HTTP requests and responses
+
+```java
+// SpecBuilder.java
+requestSpec = new RequestSpecBuilder()
+    .setBaseUri(baseUrl)
+    .setContentType(ContentType.JSON)
+    .addFilter(new AllureRestAssured())  // Captures HTTP requests/responses
+    .addHeader("Accept", "application/json")
+    .build();
+```
+
+### Installing Allure
+
+#### Option 1: Using Allure Commandline (Recommended)
+
+**macOS (using Homebrew)**:
+```bash
+brew install allure
+```
+
+**Windows (using Scoop)**:
+```bash
+scoop install allure
+```
+
+**Linux**:
+```bash
+# Download and install from: https://github.com/allure-framework/allure2/releases
+# Or use package manager
+```
+
+**Manual Installation**:
+1. Download Allure from [GitHub Releases](https://github.com/allure-framework/allure2/releases)
+2. Extract to a directory
+3. Add to PATH environment variable
+
+#### Option 2: Using Allure Maven Plugin
+
+Add the Allure Maven plugin to `pom.xml`:
+
+```xml
+<plugin>
+    <groupId>io.qameta.allure</groupId>
+    <artifactId>allure-maven</artifactId>
+    <version>2.12.0</version>
+</plugin>
+```
+
+### Generating Allure Reports
+
+#### Method 1: Using Allure Commandline
+
+```bash
+# Step 1: Run tests
+mvn clean test
+
+# Step 2: Generate Allure report
+allure generate target/allure-results -o target/allure-report --clean
+
+# Step 3: Open report in browser
+allure open target/allure-report
+```
+
+#### Method 2: Using Allure Maven Plugin
+
+If you've added the `allure-maven` plugin to `pom.xml`:
+
+```bash
+# Generate and serve report (opens in browser automatically)
+mvn allure:serve
+
+# Generate report only (without opening browser)
+mvn allure:report
+# Report will be available at: target/site/allure-maven-plugin/index.html
+```
+
+### Allure Report Structure
+
+After generating reports, you'll find:
+
+```
+target/
+├── allure-results/          # Raw test results (JSON files)
+│   ├── *.json               # Test execution data
+│   └── ...
+└── allure-report/           # Generated HTML report (if using CLI)
+    └── index.html           # Main report page
+
+# OR (if using Maven plugin)
+target/site/allure-maven-plugin/
+    └── index.html           # Main report page
+```
+
+### Viewing Allure Reports
+
+#### Local Execution
+
+1. **Using Allure CLI**:
+   ```bash
+   allure open target/allure-report
+   ```
+
+2. **Using Maven Plugin**:
+   ```bash
+   mvn allure:serve
+   # Opens automatically at http://localhost:4040
+   ```
+
+3. **Direct HTML**:
+   - Navigate to `target/site/allure-maven-plugin/index.html`
+   - Open in any web browser
+
+#### CI/CD Execution
+
+For GitHub Actions, you can add Allure report generation and publishing:
+
+```yaml
+- name: Generate Allure Report
+  if: always()
+  run: |
+    mvn allure:report
+    
+- name: Publish Allure Report
+  if: always()
+  uses: simple-elf/allure-report-action@master
+  with:
+    allure_results: target/site/allure-maven-plugin
+    keep_reports: 20
+```
+
+### Allure Report Sections
+
+1. **Overview**: Test execution summary, trends, and statistics
+2. **Suites**: Test suites and their execution results
+3. **Behaviors**: Tests organized by features and stories
+4. **Packages**: Tests organized by package structure
+5. **Graphs**: Visual charts showing test execution trends
+6. **Timeline**: Chronological view of test execution
+7. **Retries**: Information about retried tests
+
+### HTTP Request/Response in Reports
+
+Thanks to the `AllureRestAssured` filter, each test automatically includes:
+
+- **Request Details**: Method, URL, headers, body
+- **Response Details**: Status code, headers, body
+- **Timing Information**: Request duration
+- **Full JSON Payloads**: Complete request and response bodies
+
+This makes debugging API test failures much easier!
+
 ## 📚 Dependencies
 
 The framework uses the following key dependencies (defined in `pom.xml`):
@@ -603,6 +809,8 @@ The framework uses the following key dependencies (defined in `pom.xml`):
 | `hamcrest` | 3.0 | Matcher library |
 | `log4j-core` | 2.25.1 | Logging |
 | `slf4j-simple` | 2.0.9 | Logging facade |
+| `allure-testng` | 2.27.0 | Allure TestNG integration for test reporting |
+| `allure-rest-assured` | 2.27.0 | Allure REST Assured filter for HTTP request/response capture |
 
 ## 💡 Best Practices
 
@@ -679,16 +887,42 @@ public void addBookTest() {
 
 ## 🔍 Viewing Test Reports
 
-### Local Execution
+The framework generates multiple types of test reports:
 
-After running tests locally, reports are generated in:
+### 1. Allure Reports (Recommended)
 
+**Most comprehensive and interactive reports** with HTTP request/response capture.
+
+**Generate and View**:
+```bash
+# After running tests
+mvn clean test
+
+# Generate and open Allure report
+allure generate target/allure-results -o target/allure-report --clean
+allure open target/allure-report
+```
+
+**Features**:
+- Interactive dashboards
+- HTTP request/response details
+- Test execution history
+- Visual charts and graphs
+- Retry information
+
+See the [Allure Reports](#-allure-reports) section for detailed instructions.
+
+### 2. Surefire/TestNG Reports
+
+**Standard Maven test reports** generated automatically.
+
+**Location**:
 - **Surefire Reports**: `target/surefire-reports/index.html`
 - **TestNG Reports**: `target/surefire-reports/testng-reports.html`
 
-Open these HTML files in a browser to view detailed test results.
+**View**: Open these HTML files directly in a browser.
 
-### CI/CD Execution
+### 3. CI/CD Reports
 
 When tests run via GitHub Actions:
 
@@ -699,6 +933,8 @@ When tests run via GitHub Actions:
 5. Extract and open the HTML reports in a browser
 
 **Note**: Reports are archived even if tests fail, allowing you to analyze failures.
+
+**For Allure Reports in CI/CD**: Add Allure report generation steps to your workflow (see [Allure Reports](#-allure-reports) section).
 
 ## 🛠️ Troubleshooting
 
@@ -732,6 +968,13 @@ When tests run via GitHub Actions:
    - Ensure the API base URL is accessible from GitHub Actions runners
    - Check if Maven dependencies are resolving correctly
    - Review the archived test reports for specific test failures
+
+7. **Allure report not generating**
+   - Ensure Allure is installed: `allure --version`
+   - Verify `allure-results` directory exists in `target/` after test execution
+   - Check that AllureTestNg listener is configured in `pom.xml`
+   - Try running `mvn clean test` first, then generate report
+   - If using Maven plugin, ensure `allure-maven` plugin is added to `pom.xml`
 
 ## 📄 License
 

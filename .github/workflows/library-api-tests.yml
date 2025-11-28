@@ -1,4 +1,4 @@
-name: API Automation Tests
+name: API Automation Tests with Allure Report
 
 on:
   push:
@@ -6,36 +6,58 @@ on:
   pull_request:
     branches: [ main, master ]
 
+permissions:
+  contents: write       # Needed to push Allure report to gh-pages
+  pages: write
+  id-token: write
+
 jobs:
   api-tests:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: "21"
 
-      - name: Cache Maven repository
+      - name: Cache Maven repo
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.m2/repository
+          path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Run API tests
+      - name: Run API Tests
         run: mvn -B clean test -DbaseUrl=http://216.10.245.166
 
-      - name: Archive TestNG reports
-        if: always()
+      # Install Allure CLI
+      - name: Install Allure CLI
+        uses: simple-elf/allure-report-action@v1.7
+        with:
+          allure_version: 2.27.0
+          gh_pages: false
+
+      # Generate Allure HTML Report
+      - name: Generate Allure Report
+        run: allure generate target/allure-results --clean -o allure-report
+
+      # Upload Allure report as CI artifact (optional but useful)
+      - name: Upload Allure Report Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: testng-reports
-          path: |
-            target/surefire-reports/
+          name: allure-report
+          path: allure-report
+
+      # ------------ GitHub Pages Deployment ------------
+      - name: Deploy Allure Report to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: allure-report
+          publish_branch: gh-pages
