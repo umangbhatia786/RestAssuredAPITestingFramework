@@ -13,7 +13,7 @@ import org.umangqa.library.specs.SpecBuilder;
 import static io.qameta.allure.Allure.step;
 import static io.restassured.RestAssured.given;
 
-@Epic("Library API")
+@Epic("Library API Testing")
 @Feature("Delete Book")
 public class DeleteBookTest extends BaseTest {
 

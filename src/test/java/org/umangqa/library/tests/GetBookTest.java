@@ -14,7 +14,7 @@ import static io.qameta.allure.Allure.step;
 import static io.restassured.RestAssured.given;
 import static io.restassured.module.jsv.JsonSchemaValidator.matchesJsonSchemaInClasspath;
 
-@Epic("Library API")
+@Epic("Library API Testing")
 @Feature("Get Book Details")
 public class GetBookTest extends BaseTest {
     @Story("Retrieve book by ID")
