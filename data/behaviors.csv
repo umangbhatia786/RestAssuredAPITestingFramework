@@ -1,2 +1,5 @@
 "Epic","Feature","Story","FAILED","BROKEN","PASSED","SKIPPED","UNKNOWN"
-"","","","0","0","4","0","0"
+"Library API","Get Book Details","Retrieve book by ID","0","0","1","0","0"
+"Library API","Delete Book","Delete book by ID","0","0","1","0","0"
+"Library API Testing","Add Book","Add new book to the library","0","0","1","0","0"
+"Library API","Get Book Details","Retrieve book by Author","0","0","1","0","0"
