@@ -7,7 +7,7 @@ on:
     branches: [ main, master ]
 
 permissions:
-  contents: write       # Needed to push Allure report to gh-pages
+  contents: write       # needed to push to gh-pages
   pages: write
   id-token: write
 
@@ -36,25 +36,28 @@ jobs:
       - name: Run API Tests
         run: mvn -B clean test -DbaseUrl=http://216.10.245.166
 
-      # Install Allure CLI
-      - name: Install Allure CLI
-        uses: simple-elf/allure-report-action@v1.7
-        with:
-          allure_version: 2.27.0
-          gh_pages: false
+      # ---------- Install Allure CLI (no Docker, direct download) ----------
+      - name: Download Allure CLI
+        run: |
+          ALLURE_VERSION=2.27.0
+          wget https://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/$ALLURE_VERSION/allure-commandline-$ALLURE_VERSION.zip -O allure.zip
+          unzip allure.zip -d allure-cli
+          echo "$(pwd)/allure-cli/allure-$ALLURE_VERSION/bin" >> $GITHUB_PATH
 
-      # Generate Allure HTML Report
+      # ---------- Generate Allure Report ----------
       - name: Generate Allure Report
-        run: allure generate target/allure-results --clean -o allure-report
+        run: |
+          allure --version
+          allure generate target/allure-results --clean -o allure-report
 
-      # Upload Allure report as CI artifact (optional but useful)
+      # Optional: upload HTML report as artifact
       - name: Upload Allure Report Artifact
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
           path: allure-report
 
-      # ------------ GitHub Pages Deployment ------------
+      # ---------- Deploy Allure Report to GitHub Pages ----------
       - name: Deploy Allure Report to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
